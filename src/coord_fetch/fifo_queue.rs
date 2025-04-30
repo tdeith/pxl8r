@@ -1,5 +1,5 @@
 use crate::common::Point;
-use crate::imageState::ImageState;
+use crate::image_state::ImageState;
 use rand::prelude::SliceRandom;
 use rand::rngs::ThreadRng;
 

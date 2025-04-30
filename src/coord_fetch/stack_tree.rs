@@ -1,31 +1,42 @@
 use rand::prelude::SliceRandom;
 use crate::common::Point;
-use crate::imageState::ImageState;
+use crate::image_state::ImageState;
 
 pub struct StackTreeCoordFetcher {
     size: Point,
     wander_stack: Vec<(Point, Point)>,
     depth_coeff: f32,
-    depth_offset: u8,
+    fifo_rate: f32,
 }
 
 impl StackTreeCoordFetcher {
-    pub fn new(size: &Point, first: &Point, depth_coeff: f32, depth_offset: u8) -> StackTreeCoordFetcher {
+    pub fn new(size: &Point, first: &Point, depth_coeff: f32, fifo_rate: f32) -> StackTreeCoordFetcher {
         StackTreeCoordFetcher {
             wander_stack: vec![(first.clone(), first.clone())],
             size: size.clone(),
             depth_coeff,
-            depth_offset,
+            fifo_rate,
         }
     }
     fn random_idx(&mut self) -> Option<usize> {
         if self.wander_stack.is_empty() {
             return None;
         }
-        Some((
-            ((self.wander_stack.len() - 1) as f32) *
-                (1.0 - (self.depth_coeff * rand::random::<f32>()))
-        ).floor() as usize)
+        let max_idx = self.wander_stack.len() - 1;
+        let inset = (
+            max_idx as f32 *
+            self.depth_coeff * rand::random::<f32>()
+        ).floor() as usize;
+
+        let inset_idx = {
+            if rand::random::<f32>() >= self.fifo_rate {
+                max_idx - inset
+            }
+            else {
+                inset
+            }
+        };
+        Some(inset_idx)
     }
 
     fn wander(&self, seed: &Point, state: &ImageState) -> Vec<Point> {

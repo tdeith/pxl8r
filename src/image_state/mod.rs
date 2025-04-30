@@ -2,14 +2,14 @@ use crate::common::{Colour, Point};
 
 pub struct ImageState {
     points_used: Vec<Vec<bool>>,
-    colours_used: Vec<Vec<Vec<bool>>>,
+    colours_map: Vec<Vec<Vec<u8>>>,
     size: Point,
 }
 
 impl ImageState {
     pub fn new(size: &Point) -> ImageState {
         Self {
-            colours_used: vec![vec![vec![false; 256]; 256]; 256],
+            colours_map: vec![vec![vec![0; 256]; 256]; 256],
             points_used: vec![vec![false; size.h as usize]; size.w as usize],
             size: size.clone()
         }
@@ -37,8 +37,8 @@ impl ImageState {
         h < self.size.h - 1 && self.point_available(&Point { w, h: h + 1 })
     }
 
-    pub fn colour_used(&self, c: &Colour) -> Option<bool> {
-        self.colours_used
+    pub fn colour_search_dist(&self, c: &Colour) -> Option<u8> {
+        self.colours_map
             .get(c.r as usize)
             .and_then(|v| v.get(c.g as usize))
             .and_then(|v| v.get(c.b as usize))
@@ -46,8 +46,8 @@ impl ImageState {
     }
 
     pub fn colour_available(&self, c: &Colour) -> bool {
-        if let Some(used) = self.colour_used(c) {
-            return !used;
+        if let Some(used) = self.colour_search_dist(c) {
+            return used == 0;
         }
         false
     }
@@ -67,6 +67,10 @@ impl ImageState {
     }
 
     pub fn consume_colour(&mut self, c: &Colour) {
-        self.colours_used[c.r as usize][c.g as usize][c.b as usize] = true;
+        self.colours_map[c.r as usize][c.g as usize][c.b as usize] = 1;
+    }
+
+    pub fn mark_colour_dist(&mut self, c: &Colour, dist: u8) {
+        self.colours_map[c.r as usize][c.g as usize][c.b as usize] = dist;
     }
 }

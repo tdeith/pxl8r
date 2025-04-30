@@ -1,7 +1,6 @@
 use crate::common::{Colour, ColourBias};
-use crate::imageState::ImageState;
-
-use super::util::ColourWindowSearcher;
+use crate::image_state::ImageState;
+use super::util::ColourShellSearcher;
 
 pub struct TreeStackRGBFetcher {
     seed_stack: Vec<Colour>,
@@ -29,9 +28,9 @@ impl TreeStackRGBFetcher {
     }
 
     fn wander(&self, seed: &Colour, image_state: &ImageState) -> Option<Colour> {
-        let mut perimeter_wanderer = ColourWindowSearcher::new(seed, &self.bias, 1);
+        let mut perimeter_wanderer = ColourShellSearcher::new(seed, &self.bias);
 
-        while let Some(perimeter_candidates) = perimeter_wanderer.walk_perimter() {
+        while let Some(perimeter_candidates) = perimeter_wanderer.search_shell() {
             for next_try in perimeter_candidates.iter() {
                 if image_state.colour_available(&next_try) {
                     return Some(next_try.clone());
