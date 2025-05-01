@@ -34,37 +34,53 @@ fn main() {
     };
 
     let mut image_state = ImageState::new(&size);
+    let mut seed_fetchers = vec![];
 
-    let seed_coord = Point::random(&size);
-    let mut fifo_coord_finder = FifoCoordFetcher::new(&size, &seed_coord);
+    while true {
+        let depth_rand = rand::random::<f32>();
+        let fifo_rand = rand::random::<f32>();
+        let depth_coeff_pow = depth_rand * 6.0;
+        let depth_coeff = (10.0f32).powf(-depth_coeff_pow);
+        let fifo_rate = fifo_rand.powf(depth_coeff_pow);
 
-    let depth_rand = rand::random::<f32>();
-    let fifo_rand = rand::random::<f32>();
+        let point = Point::random(&size);
+        let colour = Colour::random();
 
-    let depth_coeff_pow = depth_rand * 6.0;
-    let depth_coeff = (10.0f32).powf(-depth_coeff_pow);
+        final_image.set_pixel(point.w, point.h, colour.clone().into());
+        seed_fetchers.push(StackTreeCoordFetcher::new(&size, &point, depth_coeff, fifo_rate));
 
-    let fifo_rate = fifo_rand.powf(depth_coeff_pow);
+        eprintln!(
+            "seed {}: depth: {:0.2}, fifo: {:0.2}, ({},{})=({},{},{})",
+            seed_fetchers.len(), depth_rand, fifo_rand,
+            point.w, point.h, colour.r, colour.g, colour.b,
+        );
 
-    eprintln!(
-        "depth: {:0.2} ({}), fifo: {:0.2} ({})",
-        depth_rand, depth_coeff, fifo_rand, fifo_rate
-    );
-
-    let mut stack_coord_finder =
-        StackTreeCoordFetcher::new(&size, &seed_coord, depth_coeff, fifo_rate);
+        if rand::random::<f32>() > 0.7 {
+            break;
+        }
+    }
 
     let bias = ColourBias::random();
     let mut seed_colour = Colour::random();
     let mut grad_finder = NiceGradientRGHFetcher::new(&bias);
     // let mut colour_finder = TreeStackRGBFetcher::new(&seed_colour, &bias);
 
-    final_image.set_pixel(seed_coord.w, seed_coord.h, seed_colour.into());
-
     let mut idx = 0;
     let mut jdx = 0;
+
     // while let Some((seed, next)) = fifo_coord_finder.get_next(&mut image_state) {
-    while let Some((seed, next)) = stack_coord_finder.get_next(&mut image_state) {
+    while ! seed_fetchers.is_empty() {
+        let fetcher_idx = rand::random_range(..seed_fetchers.len());
+        let (seed, next) = match seed_fetchers.get_mut(fetcher_idx)
+            .and_then(|mut fetcher| fetcher.get_next(&mut image_state))
+        {
+            Some((seed, point)) => (seed, point),
+            None => {
+                seed_fetchers.remove(fetcher_idx);
+                continue;
+            },
+        };
+
         seed_colour = final_image.get_pixel(seed.w, seed.h).into();
         // let next_colour = colour_finder.get_next(&mut image_state).unwrap();
         // let next_colour = colour_finder.get_next(&mut image_state).unwrap();
