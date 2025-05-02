@@ -35,23 +35,27 @@ fn main() {
 
     let mut image_state = ImageState::new(&size);
     let mut seed_fetchers = vec![];
+    let mut seed_weights = vec![];
+    let mut sum_seed_weights = 0.0f32;
 
-    while true {
+    loop {
         let depth_rand = rand::random::<f32>();
         let fifo_rand = rand::random::<f32>();
         let depth_coeff_pow = depth_rand * 6.0;
         let depth_coeff = (10.0f32).powf(-depth_coeff_pow);
         let fifo_rate = fifo_rand.powf(depth_coeff_pow);
+        let this_seed_weight = rand::random::<f32>() + 0.25; // Seeds can be up to 5x more prolific than one-another
 
         let point = Point::random(&size);
         let colour = Colour::random();
 
         final_image.set_pixel(point.w, point.h, colour.clone().into());
         seed_fetchers.push(StackTreeCoordFetcher::new(&size, &point, depth_coeff, fifo_rate));
+        seed_weights.push(this_seed_weight);
 
         eprintln!(
-            "seed {}: depth: {:0.2}, fifo: {:0.2}, ({},{})=({},{},{})",
-            seed_fetchers.len(), depth_rand, fifo_rand,
+            "seed {}: rate: {:0.2}, depth: {:0.2}, fifo: {:0.2}, ({},{})=({},{},{})",
+            seed_fetchers.len(), this_seed_weight, depth_rand, fifo_rand,
             point.w, point.h, colour.r, colour.g, colour.b,
         );
 
@@ -70,13 +74,15 @@ fn main() {
 
     // while let Some((seed, next)) = fifo_coord_finder.get_next(&mut image_state) {
     while ! seed_fetchers.is_empty() {
-        let fetcher_idx = rand::random_range(..seed_fetchers.len());
-        let (seed, next) = match seed_fetchers.get_mut(fetcher_idx)
-            .and_then(|mut fetcher| fetcher.get_next(&mut image_state))
+        let fetcher_idx = get_idx_of_weight(&seed_weights);
+        let (seed, next) = match seed_fetchers
+            .get_mut(fetcher_idx)
+            .and_then(|fetcher| fetcher.get_next(&mut image_state))
         {
             Some((seed, point)) => (seed, point),
             None => {
                 seed_fetchers.remove(fetcher_idx);
+                seed_weights.remove(fetcher_idx);
                 continue;
             },
         };
@@ -105,4 +111,17 @@ fn main() {
 
 fn save(image: &Image, path: &str) -> Result<(), ()> {
     image.save(path).map_err(|_| ())
+}
+
+fn get_idx_of_weight(weights: &Vec<f32>) -> usize {
+    let mut idx = 0;
+    let sum_weights = weights.iter().sum::<f32>();
+    let mut rand_selection = rand::random::<f32>() * sum_weights;
+    loop {
+        rand_selection -= weights[idx];
+        if rand_selection <= 0.0 {
+            return idx;
+        }
+        idx += 1;
+    }
 }
